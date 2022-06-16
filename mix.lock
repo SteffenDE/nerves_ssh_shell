@@ -1,0 +1,3 @@
+%{
+  "erlexec": {:git, "https://github.com/SteffenDE/erlexec.git", "92370cdde8853c1bc64f50b916cdedc9e3a86ac0", [branch: "terminal"]},
+}
