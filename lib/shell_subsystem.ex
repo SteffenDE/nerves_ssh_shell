@@ -31,7 +31,7 @@ defmodule NervesSSHShell.ShellSubsystem do
         :stdout,
         {:stderr, :stdout},
         :pty,
-        :no_pty_disable_echo,
+        :pty_echo,
         :monitor,
         env: maybe_set_term()
       ])

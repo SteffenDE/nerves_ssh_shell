@@ -60,8 +60,8 @@ defmodule NervesSSHShell.CLI do
             :stdout,
             {:stderr, :stdout},
             :pty,
+            :pty_echo,
             :monitor,
-            :no_pty_disable_echo,
             env: [:clear] ++ env ++ maybe_set_term(pty_opts)
           ])
 
@@ -104,7 +104,12 @@ defmodule NervesSSHShell.CLI do
     {:ok, %{state | pty_opts: pty_opts}}
   end
 
-  def handle_ssh_msg({:ssh_cm, cm, {:env, _, _, key, value}}, state = %{cm: cm}) do
+  def handle_ssh_msg(
+        {:ssh_cm, cm, {:env, cid, want_reply, key, value}},
+        state = %{cm: cm, cid: cid}
+      ) do
+    :ssh_connection.reply_request(cm, want_reply, :success, cid)
+
     {:ok, update_in(state, [:env], fn vars -> [{key, value} | vars] end)}
   end
 
