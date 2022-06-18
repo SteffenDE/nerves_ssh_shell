@@ -24,7 +24,7 @@ defmodule NervesSSHShell.ShellSubsystem do
     end
   end
 
-  def init(cmd: _cmd) do
+  def init(_opts) do
     {:ok, port_pid, os_pid} =
       :exec.run(get_shell_command(), [
         :stdin,
