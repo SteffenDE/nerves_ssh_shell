@@ -16,62 +16,45 @@ defmodule NervesSSHShell.CLI do
     end
   end
 
-  defp maybe_set_term(nil) do
-    if term = System.get_env("TERM") do
-      [{"TERM", term}]
-    else
-      [{"TERM", "xterm"}]
-    end
-  end
+  # defp maybe_set_term(nil) do
+  #   if term = System.get_env("TERM") do
+  #     [{"TERM", term}]
+  #   else
+  #     [{"TERM", "xterm"}]
+  #   end
+  # end
 
-  defp maybe_set_term({term, _, _, _, _, _}) when is_list(term),
-    do: [{"TERM", List.to_string(term)}]
+  # defp maybe_set_term({term, _, _, _, _, _}) when is_list(term),
+  #   do: [{"TERM", List.to_string(term)}]
 
-  defp maybe_set_window_size(_os_pid, nil), do: :ok
+  defp maybe_set_window_size(_port, nil), do: :ok
 
-  defp maybe_set_window_size(os_pid, {_term, width, height, _, _, _}) do
+  defp maybe_set_window_size(port, {_term, width, height, _, _, _}) do
     # set initial window size in background, as is does not seem to work
     # when doing it too early after creating the process
     spawn(fn ->
       Process.sleep(100)
-      :exec.winsz(os_pid, height, width)
+      ExPty.winsz(port, height, width)
     end)
   end
 
-  defp exec_command(cmd, %{pty_opts: pty_opts, env: env}) do
+  defp exec_command(cmd, %{pty_opts: pty_opts, env: _env}) do
     case pty_opts do
       nil ->
-        {:ok, pid, os_pid} =
-          :exec.run(cmd, [
-            :stdin,
-            :stdout,
-            :stderr,
-            :monitor,
-            env: [:clear] ++ env ++ maybe_set_term(pty_opts)
-          ])
+        port = ExPty.open(cmd)
 
-        if pty_opts, do: maybe_set_window_size(os_pid, pty_opts)
-        {:ok, pid, os_pid}
+        {:ok, port}
 
       pty_opts ->
-        {:ok, pid, os_pid} =
-          :exec.run(cmd, [
-            :stdin,
-            :stdout,
-            {:stderr, :stdout},
-            :pty,
-            :pty_echo,
-            :monitor,
-            env: [:clear] ++ env ++ maybe_set_term(pty_opts)
-          ])
+        port = ExPty.open(cmd)
 
-        maybe_set_window_size(os_pid, pty_opts)
-        {:ok, pid, os_pid}
+        maybe_set_window_size(port, pty_opts)
+        {:ok, port}
     end
   end
 
   def init(_) do
-    {:ok, %{port_pid: nil, os_pid: nil, pty_opts: nil, cid: nil, cm: nil, env: []}}
+    {:ok, %{port: nil, pty_opts: nil, cid: nil, cm: nil, env: []}}
   end
 
   def handle_msg({:ssh_channel_up, channel_id, connection_manager}, state) do
@@ -80,15 +63,14 @@ defmodule NervesSSHShell.CLI do
 
   # port closed
   def handle_msg(
-        {:DOWN, os_pid, :process, port_id, _},
-        %{os_pid: os_pid, port_pid: port_id, cm: cm, cid: cid} = state
+        {:EXIT, port, _reason},
+        %{port: port, cm: cm, cid: cid} = state
       ) do
     :ssh_connection.send_eof(cm, cid)
     {:stop, cid, state}
   end
 
-  def handle_msg({what, os_pid, data} = _msg, %{cm: cm, cid: cid, os_pid: os_pid} = state)
-      when what in [:stdout, :stderr] do
+  def handle_msg({port, {:data, data}} = _msg, %{cm: cm, cid: cid, port: port} = state) do
     :ssh_connection.send(cm, cid, data)
     {:ok, state}
   end
@@ -118,25 +100,25 @@ defmodule NervesSSHShell.CLI do
         state = %{cm: cm, cid: cid}
       )
       when is_list(command) do
-    {:ok, pid, os_pid} = exec_command(List.to_string(command), state)
+    {:ok, port} = exec_command(List.to_string(command) |> OptionParser.split(), state)
     :ssh_connection.reply_request(cm, want_reply, :success, cid)
-    {:ok, %{state | os_pid: os_pid, port_pid: pid}}
+    {:ok, %{state | port: port}}
   end
 
   def handle_ssh_msg(
         {:ssh_cm, cm, {:shell, cid, want_reply} = _msg},
         state = %{cm: cm, cid: cid}
       ) do
-    {:ok, pid, os_pid} = exec_command(get_shell_command(), state)
+    {:ok, port} = exec_command(get_shell_command(), state)
     :ssh_connection.reply_request(cm, want_reply, :success, cid)
-    {:ok, %{state | os_pid: os_pid, port_pid: pid}}
+    {:ok, %{state | port: port}}
   end
 
   def handle_ssh_msg(
         {:ssh_cm, _cm, {:data, channel_id, 0, data}},
-        state = %{os_pid: os_pid, cid: channel_id}
+        state = %{port: port, cid: channel_id}
       ) do
-    :exec.send(os_pid, data)
+    ExPty.send_data(port, data)
 
     {:ok, state}
   end
@@ -165,9 +147,9 @@ defmodule NervesSSHShell.CLI do
 
   def handle_ssh_msg(
         {:ssh_cm, cm, {:window_change, cid, width, height, _, _} = _msg},
-        state = %{os_pid: os_pid, cm: cm, cid: cid}
+        state = %{cm: cm, cid: cid, port: port}
       ) do
-    :exec.winsz(os_pid, height, width)
+    ExPty.winsz(port, height, width)
 
     {:ok, state}
   end
