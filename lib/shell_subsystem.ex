@@ -16,27 +16,18 @@ defmodule NervesSSHShell.ShellSubsystem do
     end
   end
 
-  defp maybe_set_term() do
-    if term = System.get_env("TERM") do
-      [{"TERM", term}]
-    else
-      [{"TERM", "xterm"}]
-    end
-  end
+  # defp maybe_set_term() do
+  #   if term = System.get_env("TERM") do
+  #     [{"TERM", term}]
+  #   else
+  #     [{"TERM", "xterm"}]
+  #   end
+  # end
 
   def init(_opts) do
-    {:ok, port_pid, os_pid} =
-      :exec.run(get_shell_command(), [
-        :stdin,
-        :stdout,
-        {:stderr, :stdout},
-        :pty,
-        :pty_echo,
-        :monitor,
-        env: maybe_set_term()
-      ])
+    port = ExPty.open(get_shell_command())
 
-    {:ok, %{os_pid: os_pid, port_pid: port_pid, cid: nil, cm: nil}}
+    {:ok, %{port: port, cid: nil, cm: nil}}
   end
 
   def handle_msg({:ssh_channel_up, channel_id, connection_manager}, state) do
@@ -45,24 +36,23 @@ defmodule NervesSSHShell.ShellSubsystem do
 
   # port closed
   def handle_msg(
-        {:DOWN, os_pid, :process, port_pid, _},
-        %{os_pid: os_pid, port_pid: port_pid, cm: cm, cid: cid} = state
+        {:EXIT, port, _reason},
+        %{port: port, cm: cm, cid: cid} = state
       ) do
     :ssh_connection.send_eof(cm, cid)
     {:stop, cid, state}
   end
 
-  def handle_msg({what, os_pid, data}, %{os_pid: os_pid, cm: cm, cid: cid} = state)
-      when what in [:stdout, :stderr] do
+  def handle_msg({port, {:data, data}} = _msg, %{cm: cm, cid: cid, port: port} = state) do
     :ssh_connection.send(cm, cid, data)
     {:ok, state}
   end
 
   def handle_ssh_msg(
-        {:ssh_cm, cm, {:data, cid, 0, data}},
-        state = %{os_pid: os_pid, cm: cm, cid: cid}
+        {:ssh_cm, _cm, {:data, channel_id, 0, data}},
+        state = %{port: port, cid: channel_id}
       ) do
-    :exec.send(os_pid, data)
+    ExPty.send_data(port, data)
 
     {:ok, state}
   end
@@ -90,10 +80,10 @@ defmodule NervesSSHShell.ShellSubsystem do
   end
 
   def handle_ssh_msg(
-        {:ssh_cm, cm, {:window_change, cid, width, height, _, _}},
-        state = %{os_pid: os_pid, cm: cm, cid: cid}
+        {:ssh_cm, cm, {:window_change, cid, width, height, _, _} = _msg},
+        state = %{cm: cm, cid: cid, port: port}
       ) do
-    :exec.winsz(os_pid, height, width)
+    ExPty.winsz(port, height, width)
 
     {:ok, state}
   end
