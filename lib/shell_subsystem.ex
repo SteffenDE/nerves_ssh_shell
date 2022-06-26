@@ -25,34 +25,35 @@ defmodule NervesSSHShell.ShellSubsystem do
   # end
 
   def init(_opts) do
-    port = ExPty.open(get_shell_command())
+    {:ok, pty} = ExPTY.start_link()
+    ExPTY.exec(pty, get_shell_command())
 
-    {:ok, %{port: port, cid: nil, cm: nil}}
+    {:ok, %{pty: pty, cid: nil, cm: nil}}
   end
 
   def handle_msg({:ssh_channel_up, channel_id, connection_manager}, state) do
     {:ok, %{state | cid: channel_id, cm: connection_manager}}
   end
 
-  # port closed
+  # pty closed
   def handle_msg(
-        {:EXIT, port, _reason},
-        %{port: port, cm: cm, cid: cid} = state
+        {:EXIT, pty, _reason},
+        %{pty: pty, cm: cm, cid: cid} = state
       ) do
     :ssh_connection.send_eof(cm, cid)
     {:stop, cid, state}
   end
 
-  def handle_msg({port, {:data, data}} = _msg, %{cm: cm, cid: cid, port: port} = state) do
+  def handle_msg({pty, {:data, data}} = _msg, %{cm: cm, cid: cid, pty: pty} = state) do
     :ssh_connection.send(cm, cid, data)
     {:ok, state}
   end
 
   def handle_ssh_msg(
         {:ssh_cm, _cm, {:data, channel_id, 0, data}},
-        state = %{port: port, cid: channel_id}
+        state = %{pty: pty, cid: channel_id}
       ) do
-    ExPty.send_data(port, data)
+    ExPTY.send_data(pty, data)
 
     {:ok, state}
   end
@@ -81,9 +82,9 @@ defmodule NervesSSHShell.ShellSubsystem do
 
   def handle_ssh_msg(
         {:ssh_cm, cm, {:window_change, cid, width, height, _, _} = _msg},
-        state = %{cm: cm, cid: cid, port: port}
+        state = %{cm: cm, cid: cid, pty: pty}
       ) do
-    ExPty.winsz(port, height, width)
+    ExPTY.winsz(pty, height, width)
 
     {:ok, state}
   end

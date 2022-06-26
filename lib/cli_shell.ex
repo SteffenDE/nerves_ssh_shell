@@ -16,61 +16,54 @@ defmodule NervesSSHShell.CLI do
     end
   end
 
-  # defp maybe_set_term(nil) do
-  #   if term = System.get_env("TERM") do
-  #     [{"TERM", term}]
-  #   else
-  #     [{"TERM", "xterm"}]
-  #   end
-  # end
-
-  # defp maybe_set_term({term, _, _, _, _, _}) when is_list(term),
-  #   do: [{"TERM", List.to_string(term)}]
-
-  defp maybe_set_window_size(_port, nil), do: :ok
-
-  defp maybe_set_window_size(port, {_term, width, height, _, _, _}) do
-    # set initial window size in background, as is does not seem to work
-    # when doing it too early after creating the process
-    spawn(fn ->
-      Process.sleep(100)
-      ExPty.winsz(port, height, width)
-    end)
+  defp maybe_set_term(nil) do
+    if term = System.get_env("TERM") do
+      [{"TERM", term}]
+    else
+      [{"TERM", "xterm"}]
+    end
   end
 
-  defp exec_command(cmd, %{pty_opts: pty_opts, env: _env}) do
-    case pty_opts do
-      nil ->
-        port = ExPty.open(cmd)
+  defp maybe_set_term({term, _, _, _, _, _}) when is_list(term),
+    do: [{"TERM", List.to_string(term)}]
 
-        {:ok, port}
-
-      pty_opts ->
-        port = ExPty.open(cmd)
-
-        maybe_set_window_size(port, pty_opts)
-        {:ok, port}
+  defp maybe_add_env(term_env, env) do
+    if Enum.any?(env, fn env ->
+         match?("TERM=" <> _, env) or match?({"ENV", _}, env)
+       end) do
+      env
+    else
+      term_env ++ env
     end
   end
 
   def init(_) do
-    {:ok, %{port: nil, pty_opts: nil, cid: nil, cm: nil, env: []}}
+    {:ok, pty} = ExPTY.start_link()
+
+    {:ok,
+     %{
+       pty: pty,
+       pty_opts: nil,
+       cid: nil,
+       cm: nil,
+       env: []
+     }}
   end
 
   def handle_msg({:ssh_channel_up, channel_id, connection_manager}, state) do
     {:ok, %{state | cid: channel_id, cm: connection_manager}}
   end
 
-  # port closed
+  # pty closed
   def handle_msg(
-        {:EXIT, port, _reason},
-        %{port: port, cm: cm, cid: cid} = state
+        {:EXIT, pty, _reason},
+        %{pty: pty, cm: cm, cid: cid} = state
       ) do
     :ssh_connection.send_eof(cm, cid)
     {:stop, cid, state}
   end
 
-  def handle_msg({port, {:data, data}} = _msg, %{cm: cm, cid: cid, port: port} = state) do
+  def handle_msg({pty, {:data, data}} = _msg, %{cm: cm, cid: cid, pty: pty} = state) do
     :ssh_connection.send(cm, cid, data)
     {:ok, state}
   end
@@ -80,7 +73,13 @@ defmodule NervesSSHShell.CLI do
     {:ok, state}
   end
 
-  def handle_ssh_msg({:ssh_cm, cm, {:pty, cid, want_reply, pty_opts} = _msg}, state = %{cm: cm}) do
+  def handle_ssh_msg(
+        {:ssh_cm, cm, {:pty, cid, want_reply, pty_opts} = _msg},
+        state = %{pty: pty, cm: cm}
+      ) do
+    {_term, cols, rows, _, _, pty_settings} = pty_opts
+    ExPTY.set_pty_opts(pty, pty_settings)
+    ExPTY.winsz(pty, rows, cols)
     :ssh_connection.reply_request(cm, want_reply, :success, cid)
 
     {:ok, %{state | pty_opts: pty_opts}}
@@ -97,28 +96,33 @@ defmodule NervesSSHShell.CLI do
 
   def handle_ssh_msg(
         {:ssh_cm, cm, {:exec, cid, want_reply, command}},
-        state = %{cm: cm, cid: cid}
+        state = %{pty: pty, cm: cm, cid: cid, pty_opts: pty_opts, env: env}
       )
       when is_list(command) do
-    {:ok, port} = exec_command(List.to_string(command) |> OptionParser.split(), state)
+    ExPTY.exec(
+      pty,
+      List.to_string(command) |> OptionParser.split(),
+      pty_opts |> maybe_set_term() |> maybe_add_env(env)
+    )
+
     :ssh_connection.reply_request(cm, want_reply, :success, cid)
-    {:ok, %{state | port: port}}
+    {:ok, %{state | pty: pty}}
   end
 
   def handle_ssh_msg(
         {:ssh_cm, cm, {:shell, cid, want_reply} = _msg},
-        state = %{cm: cm, cid: cid}
+        state = %{pty: pty, cm: cm, cid: cid, pty_opts: pty_opts, env: env}
       ) do
-    {:ok, port} = exec_command(get_shell_command(), state)
+    ExPTY.exec(pty, get_shell_command(), pty_opts |> maybe_set_term() |> maybe_add_env(env))
     :ssh_connection.reply_request(cm, want_reply, :success, cid)
-    {:ok, %{state | port: port}}
+    {:ok, %{state | pty: pty}}
   end
 
   def handle_ssh_msg(
         {:ssh_cm, _cm, {:data, channel_id, 0, data}},
-        state = %{port: port, cid: channel_id}
+        state = %{pty: pty, cid: channel_id}
       ) do
-    ExPty.send_data(port, data)
+    ExPTY.send_data(pty, data)
 
     {:ok, state}
   end
@@ -147,9 +151,9 @@ defmodule NervesSSHShell.CLI do
 
   def handle_ssh_msg(
         {:ssh_cm, cm, {:window_change, cid, width, height, _, _} = _msg},
-        state = %{cm: cm, cid: cid, port: port}
+        state = %{cm: cm, cid: cid, pty: pty}
       ) do
-    ExPty.winsz(port, height, width)
+    ExPTY.winsz(pty, height, width)
 
     {:ok, state}
   end
