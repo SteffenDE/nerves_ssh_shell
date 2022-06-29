@@ -38,7 +38,7 @@ defmodule NervesSSHShell.CLI do
     end)
   end
 
-  defp exec_command(cmd, %{pty_opts: pty_opts, env: env}) do
+  defp exec_command(cmd, %{pty_opts: pty_opts = {_term, _, _, _, _, opts}, env: env}) do
     case pty_opts do
       nil ->
         {:ok, pid, os_pid} =
@@ -59,8 +59,7 @@ defmodule NervesSSHShell.CLI do
             :stdin,
             :stdout,
             {:stderr, :stdout},
-            :pty,
-            :pty_echo,
+            {:pty, opts},
             :monitor,
             env: [:clear] ++ env ++ maybe_set_term(pty_opts)
           ])

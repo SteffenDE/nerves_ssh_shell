@@ -91,15 +91,15 @@ def children(_target) do
     # but with all other options being the same
     # as the default daemon on port 22
     {NervesSSH,
-      {:shell,
-      NervesSSH.Options.with_defaults(
-        Application.get_all_env(:nerves_ssh)
-        |> Keyword.merge(
-          port: 2222,
-          shell: :disabled,
-          cli: {NervesSSHShell.CLI, []}
-        )
-      )}}
+     NervesSSH.Options.with_defaults(
+       Application.get_all_env(:nerves_ssh)
+       |> Keyword.merge(
+         name: :shell,
+         port: 2222,
+         shell: :disabled,
+         daemon_option_overrides: [{:ssh_cli, {NervesSSHShell.CLI, []}}]
+       )
+     )}
   ]
 end
 ```

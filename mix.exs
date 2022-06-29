@@ -21,7 +21,7 @@ defmodule NervesSSHShell.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:erlexec, github: "saleyn/erlexec", tag: "7f12101e5e7128d9a442974060cec81c90db71ef"}
+      {:erlexec, github: "SteffenDE/erlexec", branch: "pty_opts"}
     ]
   end
 end

@@ -1,3 +1,3 @@
 %{
-  "erlexec": {:git, "https://github.com/saleyn/erlexec.git", "7f12101e5e7128d9a442974060cec81c90db71ef", [tag: "7f12101e5e7128d9a442974060cec81c90db71ef"]},
+  "erlexec": {:git, "https://github.com/SteffenDE/erlexec.git", "ec498ba83cdd89bf232eb9eb0e250ade73c00ad9", [branch: "pty_opts"]},
 }
