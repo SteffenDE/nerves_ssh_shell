@@ -1,6 +1,7 @@
 # SSHSubsystemExample
 
-**TODO: Add description**
+An example nerves project that exposes an operating system shell
+next to the default IEx shell using a custom SSH subsystem.
 
 ## Targets
 

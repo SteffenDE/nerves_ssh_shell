@@ -1,6 +1,7 @@
 # SSHMultiDaemonExample
 
-**TODO: Add description**
+An example nerves project that exposes an operating system shell on port 2222
+next to the default IEx shell on port 22.
 
 ## Targets
 

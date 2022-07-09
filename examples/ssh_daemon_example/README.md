@@ -1,6 +1,7 @@
 # SSHDaemonExample
 
-**TODO: Add description**
+An example nerves project that exposes an operating system shell on port 22
+instead of the default IEx shell.
 
 ## Targets
 

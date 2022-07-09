@@ -48,35 +48,14 @@ Option two has the following known issues:
 * to achieve correct interactivity, the ssh client has to force pty allocation (e.g. `ssh my-nerves-device -tt -s shell`)
 * setting environment variables is not supported (e.g. `ssh -o SetEnv="FOO=Bar" my-nerves-device`)
 
-Currently, using option one either requires to live without the IEx shell or to use a custom version
-of `nerves_ssh`, that supports running multiple daemons at the same time.
-
-### Running without the IEx shell
-
-```elixir
-def deps do
-  [
-    {:nerves_ssh_shell, github: "SteffenDE/nerves_ssh_shell", branch: "main"}
-  ]
-end
-```
-
-```elixir
-# config/target.exs
-config :nerves_ssh,
-  shell: :disabled,
-  daemon_option_overrides: [{:ssh_cli, {NervesSSHShell.CLI, []}}]
-  ...
-```
-
 ### Running with two daemons
 
 The default configuration for `nerves_ssh` can be left untouched.
+Please notice that this requires a `nerves_ssh` version >= `0.4.0`.
 
 ```elixir
 def deps do
   [
-    {:nerves_ssh, github: "SteffenDE/nerves_ssh", branch: "cli", override: true},
     {:nerves_ssh_shell, github: "SteffenDE/nerves_ssh_shell", branch: "main"}
   ]
 end
@@ -113,4 +92,26 @@ config :nerves_ssh,
     {'shell', {NervesSSHShell.ShellSubsystem, []}},
   ],
   authorized_keys: ...
+```
+
+### Running without the IEx shell
+
+If you do not need the default IEx shell, you can also just run one daemon and
+override the shell, although I do not recommend this as there is no easy way to
+access IEx from an OS shell.
+
+```elixir
+def deps do
+  [
+    {:nerves_ssh_shell, github: "SteffenDE/nerves_ssh_shell", branch: "main"}
+  ]
+end
+```
+
+```elixir
+# config/target.exs
+config :nerves_ssh,
+  shell: :disabled,
+  daemon_option_overrides: [{:ssh_cli, {NervesSSHShell.CLI, []}}]
+  ...
 ```

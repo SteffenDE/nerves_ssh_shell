@@ -31,15 +31,15 @@ defmodule SSHSubsystemExample.MixProject do
   defp deps do
     [
       # Dependencies for all targets
-      {:nerves, "~> 1.7.15", runtime: false},
-      {:shoehorn, "~> 0.8.0"},
+      {:nerves, "~> 1.8.0", runtime: false},
+      {:shoehorn, "~> 0.9.1"},
       {:ring_logger, "~> 0.8.3"},
       {:toolshed, "~> 0.2.13"},
 
       # Dependencies for all targets except :host
       {:nerves_ssh_shell, path: "../../", targets: @all_targets, env: Mix.env()},
-      {:nerves_runtime, "~> 0.11.6", targets: @all_targets},
-      {:nerves_pack, "~> 0.6.0", targets: @all_targets},
+      {:nerves_runtime, "~> 0.13.1", targets: @all_targets},
+      {:nerves_pack, "~> 0.7.0", targets: @all_targets},
 
       # Dependencies for specific targets
       # NOTE: It's generally low risk and recommended to follow minor version
