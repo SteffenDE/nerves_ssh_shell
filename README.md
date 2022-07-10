@@ -4,9 +4,6 @@ This project allows you to connect to your [nerves](https://www.nerves-project.o
 using a standard shell. It is useful for debugging and testing purposes and allows
 running interactive cli applications like vi on the device.
 
-This project depends on `erlexec` which currently does not compile on `musl` based systems.
-Therefore, the default `x86_64` nerves target does not work.
-
 ## Installation
 
 Add `nerves_ssh_shell` to your dependencies.

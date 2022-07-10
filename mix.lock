@@ -1,3 +1,3 @@
 %{
-  "erlexec": {:git, "https://github.com/SteffenDE/erlexec.git", "cd5de81348fec07fc1066257648be86714f83b09", [branch: "limits"]},
+  "erlexec": {:git, "https://github.com/saleyn/erlexec.git", "e64d794b504a507038d10a44d5a2e9f1a4df638d", [branch: "master"]},
 }
