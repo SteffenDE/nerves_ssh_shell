@@ -14,14 +14,16 @@ defmodule NervesSSHShell.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger, :ssh]
+      extra_applications: [:logger, :public_key, :ssh]
     ]
   end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:erlexec, github: "saleyn/erlexec", branch: "master"}
+      {:erlexec, "~> 2.0"},
+      {:nerves_ssh, "~> 0.4.0", only: [:dev, :test]},
+      {:sshex, "~> 2.2.1", only: [:dev, :test]}
     ]
   end
 end
