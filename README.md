@@ -1,5 +1,7 @@
 # NervesSSHShell
 
+See [NervesSystemShell](https://github.com/nerves-containers/nerves_system_shell) instead.
+
 This project allows you to connect to your [nerves](https://www.nerves-project.org) devices
 using a standard shell. It is useful for debugging and testing purposes and allows
 running interactive cli applications like vi on the device.
